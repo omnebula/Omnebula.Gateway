@@ -1,0 +1,11 @@
+/.vs
+/Service/Build
+/Service/Output
+/Setup/CustomActions/Build
+/Setup/CustomActions/Output
+/Setup/Installer/Debug
+/Setup/Installer/Omnebula.Gateway.msi
+/Setup/Installer/setup.exe
+/Setup/Installer/Omnebula.Gateway.CustomActions.dll
+/Service/Service.xml
+/Service/Hosts.xml

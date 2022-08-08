@@ -1,0 +1,4 @@
+LIBRARY Omnebula.Gateway.CustomActions.dll
+EXPORTS
+	OGCA_InstallAccess
+	OGCA_UninstallAccess

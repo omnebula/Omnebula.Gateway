@@ -1,0 +1,46 @@
+<VSDX>
+	<Package ServiceName="Omnebula.Gateway" AccountName="NT Service\$(ServiceName)">
+		<Component FileName="$(ServiceName).Service.exe">
+			<Service>
+				<ServiceName>$(ServiceName)</ServiceName>
+				<DisplayName>Omnebula Gateway Service</DisplayName>
+				<!-->StartName>$(AccountName)</StartName-->
+				<Description>Provides HTTP reverse proxy services for web sites</Description>
+				<Recovery>
+					<First Action="restart"/>
+					<Second Action="restart"/>
+				</Recovery>
+			</Service>
+			<RemoveFile>
+				<Directory>[TARGETDIR]</Directory>
+				<FileName>$(ServiceName).log</FileName>
+				<InstallMode>msidbRemoveFileInstallModeOnBoth</InstallMode>
+			</RemoveFile>
+			<CustomActionLibrary>
+				<Name>OmnebulaGatewayCustomActions</Name>
+				<Path>Omnebula.Gateway.CustomActions.dll</Path>
+				<Function>
+					<Name>OGCA_InstallAccess</Name>
+					<Params>$(AccountName);$(ServiceName);[TARGETDIR]$(FileName)</Params>
+					<Flags>msidbCustomActionTypeNoImpersonate</Flags>
+					<Sequence>
+						<Before>StartServices</Before>
+						<Condition>IsNotInstalled AND IsInstalling</Condition>
+					</Sequence>
+				</Function>
+				<Function>
+					<Name>OGCA_UninstallAccess</Name>
+					<Params>$(AccountName);$(ServiceName);[TARGETDIR]$(FileName)</Params>
+					<Flags>msidbCustomActionTypeNoImpersonate</Flags>
+					<Sequence>
+						<Before>StopServices</Before>
+						<Condition>IsInstalled AND IsUninstalling</Condition>
+					</Sequence>
+				</Function>
+			</CustomActionLibrary>
+		</Component>
+	</Package>
+	<PostBuild>
+		<Run>SignTool sign /f "%DevCertPath%\Joel Luzadas Inc.pfx" /tr http://timestamp.digicert.com /td SHA256 /p "U93oO7aqeqw*hd" /d "Omnebula Gateway Service" "$(MsiFilePath)"</Run>
+	</PostBuild>
+</VSDX>
