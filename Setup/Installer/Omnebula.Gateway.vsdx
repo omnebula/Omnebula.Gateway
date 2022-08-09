@@ -4,7 +4,7 @@
 			<Service>
 				<ServiceName>$(ServiceName)</ServiceName>
 				<DisplayName>Omnebula Gateway Service</DisplayName>
-				<!-->StartName>$(AccountName)</StartName-->
+				<!--StartName>$(AccountName)</StartName-->
 				<Description>Provides HTTP reverse proxy services for web sites</Description>
 				<Recovery>
 					<First Action="restart"/>
