@@ -20,7 +20,7 @@ public:
 	void addProvider(const char *path, GatewayProvider *provider);
 
 private:
-	PathIndex<GatewayProviderPtr> m_providers;
+	HttpFolderIndex<GatewayProviderPtr> m_providers;
 };
 
 typedef RefPointer<GatewayHost> GatewayHostPtr;
@@ -66,27 +66,15 @@ inline GatewayProviderPtr GatewayHost::lookupProvider(HttpUri &uri) const
 {
 	GatewayProviderPtr provider;
 
-	size_t matchingLength = 0;
+	size_t pathInfoPos = 0;
 	String path = uri.getPath();
-	if (m_providers.lookup(path, provider, &matchingLength))
+	if (m_providers.lookupFolder(path, provider, pathInfoPos))
 	{
-		char ch = path[matchingLength];
-		if (ch != 0)	// 0 means exact match, i.e. end-of-string.
-		{
-			// Otherwise, must land on folder delimiter.
-			if ((ch != '/') && (path[--matchingLength] != '/'))
-			{
-				provider = nullptr;
-			}
-			else
-			{
-				uri.setPathInfoPos(matchingLength);
-			}
-		}
-		else
-		{
-			uri.setPathInfoPos(matchingLength);
-		}
+		uri.setPathInfoPos(pathInfoPos);
+	}
+	else
+	{
+		provider = nullptr;
 	}
 
 	return provider;
