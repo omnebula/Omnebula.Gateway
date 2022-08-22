@@ -66,13 +66,7 @@ inline GatewayProviderPtr GatewayHost::lookupProvider(HttpUri &uri) const
 {
 	GatewayProviderPtr provider;
 
-	size_t pathInfoPos = 0;
-	String path = uri.getPath();
-	if (m_providers.lookupFolder(path, provider, pathInfoPos))
-	{
-		uri.setPathInfoPos(pathInfoPos);
-	}
-	else
+	if (!m_providers.lookupFolder(uri, provider))
 	{
 		provider = nullptr;
 	}

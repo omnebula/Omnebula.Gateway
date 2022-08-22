@@ -50,7 +50,7 @@ GatewayProvider::GatewayProvider(const Xml &providerConfig, const String &target
 }
 
 
-void GatewayProvider::beginDispatch(GatewayContext *context)
+void GatewayProvider::beginDispatch(GatewayContext *context, const HttpUri &uri)
 {
 	// First, try authenticating.
 	if (!m_basicAuthUsers.isEmpty())
@@ -73,7 +73,7 @@ void GatewayProvider::beginDispatch(GatewayContext *context)
 	}
 
 	// Handle the request.
-	dispatchRequest(context);
+	dispatchRequest(context, uri);
 }
 
 
@@ -86,7 +86,7 @@ GatewayRedirectProvider::GatewayRedirectProvider(const Xml &config, const String
 {
 	m_newQuery = ELLIPSIS;
 
-	Http::SplitUrl(m_target, &m_newScheme, &m_newHost, &m_newPath, &m_newQuery);
+	Http::SplitUri(m_target, &m_newScheme, &m_newHost, &m_newPath, &m_newQuery);
 
 	if (m_newScheme == ELLIPSIS)
 	{
@@ -99,7 +99,7 @@ GatewayRedirectProvider::GatewayRedirectProvider(const Xml &config, const String
 	}
 }
 
-void GatewayRedirectProvider::dispatchRequest(GatewayContext *context)
+void GatewayRedirectProvider::dispatchRequest(GatewayContext *context, const HttpUri &uri)
 {
 	static const String SECURE_SCHEME = "https";
 	static const String INSECURE_SCHEME = "http";
@@ -107,10 +107,8 @@ void GatewayRedirectProvider::dispatchRequest(GatewayContext *context)
 	String scheme = m_newScheme.isEmpty() ? (context->getStream()->isSecure() ? SECURE_SCHEME : INSECURE_SCHEME) : m_newScheme;
 	String host = m_newHost.isEmpty() ? context->request.getHost() : m_newHost;
 
-	HttpUri requestUri = context->request.getUri();
-
-	String requestPath = requestUri.getPath();
-	String requestQuery = requestUri.getQueryString();
+	String requestPath = uri.getPath();
+	String requestQuery = uri.getQueryString();
 	if (requestPath.isEmpty())
 	{
 		throw HttpException(HttpStatus::BAD_REQUEST);
@@ -191,9 +189,9 @@ GatewayFileProvider::GatewayFileProvider(const Xml &config, const String &target
 	}
 }
 
-void GatewayFileProvider::dispatchRequest(GatewayContext *context)
+void GatewayFileProvider::dispatchRequest(GatewayContext *context, const HttpUri &uri)
 {
-	String pathInfo = Http::DecodeUrl(context->request.getUri().getPathInfo());
+	String pathInfo = uri.getPathInfo();
 	pathInfo.trimLeft('/');
 
 	HttpServerResponse *response = new HttpServerResponse;
@@ -224,7 +222,20 @@ GatewayServerProvider::GatewayServerProvider(const Xml &config, const String &ta
 	if (config.findChild("options", optionConfig))
 	{
 		m_newHost = optionConfig.getAttribute("new-host");
-		m_newUri = optionConfig.getAttribute("new-uri");
+		
+		String newUri = optionConfig.getAttribute("new-uri");
+		if (!newUri.isEmpty())
+		{
+			if (!newUri.splitLeft("?", &m_newPath, &m_newQuery))
+			{
+				m_newPath = newUri;
+			}
+
+			if (m_newPath[0] != '/')
+			{
+				throw Exception(ERROR_BAD_ARGUMENTS, "invalid uri: %s", newUri);
+			}
+		}
 	}
 
 	m_connectionPool = AcquireConnectionPool(m_target);
@@ -235,7 +246,7 @@ GatewayServerProvider::~GatewayServerProvider()
 	ReleaseConnectionPool(m_target);
 }
 
-void GatewayServerProvider::dispatchRequest(GatewayContext *context)
+void GatewayServerProvider::dispatchRequest(GatewayContext *context, const HttpUri &uri)
 {
 	// Add the Forwarded header.
 	NetStreamPtr clientStream = context->getStream();
@@ -255,16 +266,28 @@ void GatewayServerProvider::dispatchRequest(GatewayContext *context)
 		context->request.setHost(m_newHost);
 	}
 
-	if (!m_newUri.isEmpty())
+	if (!m_newPath.isEmpty() || !m_newQuery.isEmpty())
 	{
-		String pathInfo = Http::DecodeUrl(context->request.getUri().getPathInfo());
-		String query = context->request.getUri().getQueryString(true);
-		String requestUri = m_newUri;
+		HttpUri newUri;
+		if (m_newPath.isEmpty())
+		{
+			newUri.setPath(uri.getPath());
+		}
+		else
+		{
+			String path = m_newPath;
+			path.replace(ELLIPSIS, uri.getPathInfo());	// Don't use full path; skip server-info.
+			newUri.setPath(path);
+		}
 
-		requestUri.replace(QUERY_ELLIPSIS, query);
-		requestUri.replace(ELLIPSIS, pathInfo);
+		if (!m_newQuery.isEmpty())
+		{
+			String query = m_newQuery;
+			query.replace(ELLIPSIS, uri.getQueryString());
+			newUri.setQueryString(query);
+		}
 
-		context->request.setUri(requestUri);
+		context->request.setUri(newUri);
 	}
 
 	// Send to origin server.

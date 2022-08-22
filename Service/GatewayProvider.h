@@ -20,10 +20,10 @@ public:
 
 	String getTarget() const;
 
-	void beginDispatch(GatewayContext *context);
+	void beginDispatch(GatewayContext *context, const HttpUri &uri);
 
 protected:
-	virtual void dispatchRequest(GatewayContext *context) = 0;
+	virtual void dispatchRequest(GatewayContext *context, const HttpUri &uri) = 0;
 
 protected:
 	String m_uri;
@@ -49,7 +49,7 @@ public:
 	GatewayRedirectProvider(const Xml &config, const String &target);
 
 protected:
-	virtual void dispatchRequest(GatewayContext *context);
+	virtual void dispatchRequest(GatewayContext *context, const HttpUri &uri);
 
 private:
 	String m_newScheme;
@@ -71,7 +71,7 @@ public:
 	GatewayFileProvider(const Xml &config, const String &target);
 
 protected:
-	virtual void dispatchRequest(GatewayContext *context);
+	virtual void dispatchRequest(GatewayContext *context, const HttpUri &uri);
 
 private:
 	String m_defaultFile;
@@ -92,12 +92,13 @@ public:
 	virtual ~GatewayServerProvider();
 
 protected:
-	virtual void dispatchRequest(GatewayContext *context);
+	virtual void dispatchRequest(GatewayContext *context, const HttpUri &uri);
 
 private:
 	/* Options */
 	String m_newHost;
-	String m_newUri;
+	String m_newPath;
+	String m_newQuery;
 
 	/* Connection Pooling */
 	struct ConnectionPool : public NetConnectionPool, public RefCounter

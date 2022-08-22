@@ -30,12 +30,11 @@ void GatewayContext::beginRequest()
 						GatewayHostPtr host = m_dispatcher->lookupHost(hostName);
 						if (host)
 						{
-							HttpUri uri = request.getUri();
+							HttpUri uri = Http::DecodeUri(request.getUri());
 							GatewayProviderPtr provider = host->lookupProvider(uri);
 							if (provider)
 							{
-								request.setUri(uri);
-								provider->beginDispatch(this);
+								provider->beginDispatch(this, uri);
 							}
 							else
 							{
