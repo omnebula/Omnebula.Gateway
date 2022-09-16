@@ -32,7 +32,7 @@ UINT __stdcall OGCA_InstallAccess(MSIHANDLE msiHandle)
 				policy.addRule(rule);
 			}
 
-			IteratePrivateKeyDirectories(accountName, servicePath, GRANT_ACCESS);
+//			IteratePrivateKeyDirectories(accountName, servicePath, GRANT_ACCESS);
 
 			ca.logInfo("Successfully installed access");
 		}
@@ -65,7 +65,7 @@ UINT __stdcall OGCA_UninstallAccess(MSIHANDLE msiHandle)
 			WinFwPolicy policy;
 			policy.removeRule(serviceName);
 
-			IteratePrivateKeyDirectories(accountName, servicePath, REVOKE_ACCESS);
+//			IteratePrivateKeyDirectories(accountName, servicePath, REVOKE_ACCESS);
 
 			ca.logInfo("Successfully uninstalled access");
 		}

@@ -69,6 +69,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -89,7 +90,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>SignTool sign /f "$(DevCertPath)\Joel Luzadas Inc.pfx" /tr http://timestamp.digicert.com /td SHA256 /p "U93oO7aqeqw*hd" "$(TargetDir)$(TargetFileName)"</Command>
+      <Command>SignTool sign /f "$(DevCertPath)\Joel Luzadas\Joel Luzadas Inc.pfx" /tr http://timestamp.digicert.com /td SHA256 /p "U93oO7aqeqw*hd" "$(TargetDir)$(TargetFileName)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

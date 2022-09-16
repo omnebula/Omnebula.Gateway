@@ -33,7 +33,7 @@
 					<Params>$(AccountName);$(ServiceName);[TARGETDIR]$(FileName)</Params>
 					<Flags>msidbCustomActionTypeNoImpersonate</Flags>
 					<Sequence>
-						<Before>StopServices</Before>
+						<After>StopServices</After>
 						<Condition>IsInstalled AND IsUninstalling</Condition>
 					</Sequence>
 				</Function>
@@ -41,6 +41,6 @@
 		</Component>
 	</Package>
 	<PostBuild>
-		<Run>SignTool sign /f "%DevCertPath%\Joel Luzadas Inc.pfx" /tr http://timestamp.digicert.com /td SHA256 /p "U93oO7aqeqw*hd" /d "Omnebula Gateway Service" "$(MsiFilePath)"</Run>
+		<Run>SignTool sign /f "%DevCertPath%\Joel Luzadas\Joel Luzadas Inc.pfx" /tr http://timestamp.digicert.com /td SHA256 /p "U93oO7aqeqw*hd" /d "Omnebula Gateway Service" "$(MsiFilePath)"</Run>
 	</PostBuild>
 </VSDX>

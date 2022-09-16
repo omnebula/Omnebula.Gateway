@@ -116,8 +116,8 @@ void GatewayHostConfig::loadHost(
 		hostProps,
 		[this, &host](const Xml &childConfig, const PropertyMap &childProps) mutable
 		{
-			String uri = childProps["uri"];
-			if (uri.isEmpty())
+			String uri;
+			if (!childProps.get("uri", uri) || uri.isEmpty())
 			{
 				throw Exception("missing uri");
 			}
@@ -174,9 +174,9 @@ void GatewayHostConfig::loadHost(
 					hostMap = it->second;
 				}
 
-				if (!hostMap->get(name))
+				if (!hostMap->lookup(name))
 				{
-					hostMap->set(name, host);
+					hostMap->insert(name, host);
 				}
 				else
 				{

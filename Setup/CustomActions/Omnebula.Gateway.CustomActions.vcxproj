@@ -85,7 +85,7 @@
       <ModuleDefinitionFile>CustomActions.def</ModuleDefinitionFile>
     </Link>
     <PostBuildEvent>
-      <Command>SignTool sign /f "$(DevCertPath)\Joel Luzadas Inc.pfx" /tr http://timestamp.digicert.com /td SHA256 /p "U93oO7aqeqw*hd" "$(TargetDir)$(TargetFileName)"
+      <Command>SignTool sign /f "$(DevCertPath)\Joel Luzadas\Joel Luzadas Inc.pfx" /tr http://timestamp.digicert.com /td SHA256 /p "U93oO7aqeqw*hd" "$(TargetDir)$(TargetFileName)"
 copy /y "$(TargetDir)$(TargetFileName)" "$(SolutionDir)Setup\Installer"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

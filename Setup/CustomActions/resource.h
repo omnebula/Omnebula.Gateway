@@ -1,6 +1,7 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by Omnebula.Proxy.CustomActions.rc
+// Used by CustomActions.rc
+//
 
 // Next default values for new objects
 // 

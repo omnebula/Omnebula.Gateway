@@ -95,16 +95,16 @@ bool OmnebulaGatewayServiceApp::loadServiceConfig(Xml &serviceConfig)
 	Xml &certs = serviceConfig["certs"];
 	for (auto &current : certs)
 	{
-		String container = current.getData();
-		if (!container.isEmpty())
+		containerName = current.getData();
+		if (!containerName.isEmpty())
 		{
-			if (NetTlsProtocol::OpenMachineContainer(container))
+			if (NetTlsProtocol::OpenMachineContainer(containerName))
 			{
-				AfxLogInfo("Opened certificate store '%s'", container);
+				AfxLogInfo("Opened certificate store '%s'", containerName);
 			}
 			else
 			{
-				AfxLogWarning("OmnebulaProxyApp::loadServiceConfig@OpenCustomMachineContainer(%s) - %s", container, AfxFormatLastError());
+				AfxLogWarning("OmnebulaProxyApp::loadServiceConfig@OpenCustomMachineContainer(%s) - %s", containerName, AfxFormatLastError());
 			}
 		}
 	}

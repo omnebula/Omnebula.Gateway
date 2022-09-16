@@ -53,5 +53,5 @@ inline void GatewayDispatcher::setHostMap(GatewayHostMap *hostMap)
 inline GatewayHostPtr GatewayDispatcher::lookupHost(const char *hostName)
 {
 	SyncSharedLock lock(m_hostMutex);
-	return m_hostMap->get(hostName);
+	return m_hostMap->lookup(hostName);
 }

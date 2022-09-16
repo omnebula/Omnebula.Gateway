@@ -33,8 +33,8 @@ typedef RefPointer<GatewayHost> GatewayHostPtr;
 class GatewayHostMap : public RefCounter
 {
 public:
-	GatewayHostPtr get(const char *hostName);
-	void set(String hostName, GatewayHost *host);
+	GatewayHostPtr lookup(const char *hostName);
+	void insert(String hostName, GatewayHost *host);
 
 private:
 	SyncMutex m_hostMutex;
@@ -66,7 +66,7 @@ inline GatewayProviderPtr GatewayHost::lookupProvider(HttpUri &uri) const
 {
 	GatewayProviderPtr provider;
 
-	if (!m_providers.lookupFolder(uri, provider))
+	if (!m_providers.lookup(uri, provider))
 	{
 		provider = nullptr;
 	}
@@ -76,29 +76,29 @@ inline GatewayProviderPtr GatewayHost::lookupProvider(HttpUri &uri) const
 
 inline void GatewayHost::addProvider(const char *path, GatewayProvider *provider)
 {
-	m_providers.set(path, provider);
+	m_providers.insert(path, provider);
 }
 
 
 
-inline GatewayHostPtr GatewayHostMap::get(const char *hostName)
+inline GatewayHostPtr GatewayHostMap::lookup(const char *hostName)
 {
 	GatewayHostPtr host;
 
 	m_hostMutex.lockShared();
-	if (!m_hosts.get(hostName, host))
+	if (!m_hosts.lookup(hostName, host))
 	{
 		m_hostMutex.unlockShared();
 		m_hostMutex.lock();
 
-		if (!m_hosts.get(hostName, host))
+		if (!m_hosts.lookup(hostName, host))
 		{
 			// Detect wildcard.
 			String wildcard = hostName;
 			wildcard.reverse();
 
 			size_t endPos = -1;
-			if (!m_hosts.get(wildcard, host, &endPos)
+			if (!m_hosts.lookup(wildcard, host, &endPos)
 				|| ((endPos != -1)
 					&& (endPos != wildcard.getLength())
 					&& (wildcard[endPos] != '.')))
@@ -106,7 +106,7 @@ inline GatewayHostPtr GatewayHostMap::get(const char *hostName)
 				host = nullptr;
 			}
 
-			m_hosts.set(hostName, host);
+			m_hosts.insert(hostName, host);
 		}
 
 		m_hostMutex.unlock();
@@ -119,7 +119,7 @@ inline GatewayHostPtr GatewayHostMap::get(const char *hostName)
 	return host;
 }
 
-inline void GatewayHostMap::set(String hostName, GatewayHost *host)
+inline void GatewayHostMap::insert(String hostName, GatewayHost *host)
 {
 	if (!hostName.trim().isEmpty())
 	{
@@ -131,6 +131,6 @@ inline void GatewayHostMap::set(String hostName, GatewayHost *host)
 		}
 
 		SyncLock lock(m_hostMutex);
-		m_hosts.set(hostName, host);
+		m_hosts.insert(hostName, host);
 	}
 }
