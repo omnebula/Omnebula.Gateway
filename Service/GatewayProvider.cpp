@@ -171,10 +171,8 @@ void GatewayRedirectProvider::dispatchRequest(GatewayContext *context, const Htt
 GatewayFileProvider::GatewayFileProvider(const Xml &config, const String &target) :
 	GatewayProvider(config, target)
 {
-	if (m_target[m_target.getLength() - 1] != '\\')
-	{
-		m_target += "\\";
-	}
+	m_target.trimRight("\\");
+	m_target.trimRight("/");
 
 	Xml options;
 	if (config.findChild("options", options))
