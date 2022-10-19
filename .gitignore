@@ -11,3 +11,5 @@
 /Service/Hosts.xml
 /Diagnostics
 /Service/GatewayService.aps
+/Integration
+/Setup/CustomActions/CustomActions.aps
