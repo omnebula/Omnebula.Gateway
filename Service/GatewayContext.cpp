@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "GatewayDispatcher.h"
+#include "GatewayService.h"
 #include "GatewayContext.h"
 
 
@@ -7,9 +8,21 @@
 // class GatewayContext
 //
 
+GatewayContext::GatewayContext(GatewayDispatcher *dispatcher) :
+	m_dispatcher(dispatcher)
+{
+	assert(m_dispatcher);
+}
+
+GatewayContext::~GatewayContext()
+{
+}
+
+
 void GatewayContext::beginContext(NetStream *stream)
 {
 	__super::beginContext(stream);
+
 	beginRequest();
 }
 
@@ -96,6 +109,7 @@ void GatewayContext::sendResponse(HttpResponsePtr response, io_handler_t &&handl
 			if (state->succeeded() && response->isKeepAlive())
 			{
 				reset();
+
 				beginRequest();
 			}
 			else

@@ -28,6 +28,7 @@ private:
 	SyncMutex m_hostMutex;
 	String m_connectorString;
 	GatewayHostMapPtr m_hostMap;
+
 };
 
 using GatewayDispatcherPtr = RefPointer<GatewayDispatcher>;

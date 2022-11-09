@@ -42,15 +42,6 @@ using GatewayContextPtr = RefPointer<GatewayContext>;
 
 /* Inline Implementations */
 
-inline GatewayContext::GatewayContext(GatewayDispatcher *dispatcher) :
-	m_dispatcher(dispatcher)
-{
-}
-
-inline GatewayContext::~GatewayContext()
-{
-}
-
 inline void GatewayContext::receiveRequest(NetStream *stream, io_handler_t &&handler)
 {
 	request.receive(stream, std::move(handler));

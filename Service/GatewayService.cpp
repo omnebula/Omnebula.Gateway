@@ -57,10 +57,26 @@ bool OmnebulaGatewayServiceApp::initConfigs()
 	return true;
 }
 
+
 bool OmnebulaGatewayServiceApp::loadServiceConfig(Xml &serviceConfig)
 {
 	AfxLogInfo("Loading service configuration");
 
+	if (!initServiceCertificates(serviceConfig))
+	{
+		return false;
+	}
+
+	if (!initServiceTimeouts(serviceConfig))
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool OmnebulaGatewayServiceApp::initServiceCertificates(Xml &serviceConfig)
+{
 	// Close existing containers.
 	NetTlsProtocol::CloseAllContainers();
 
@@ -113,6 +129,25 @@ bool OmnebulaGatewayServiceApp::loadServiceConfig(Xml &serviceConfig)
 
 	return true;
 }
+
+static inline unsigned __ConvertTimeout(const String &str)
+{
+	unsigned timeout = StringToInt(str);
+	return timeout == 0 ? INFINITE : timeout;
+}
+bool OmnebulaGatewayServiceApp::initServiceTimeouts(Xml &serviceConfig)
+{
+	Xml timeoutConfig = serviceConfig["io"]["timeouts"];
+	if (!timeoutConfig.isNull())
+	{
+		m_connectionSettings.IdleTimeout = __ConvertTimeout(timeoutConfig["idle"]);
+		m_connectionSettings.ReadTimeout = __ConvertTimeout(timeoutConfig["read"]);
+		m_connectionSettings.WriteTimeout = __ConvertTimeout(timeoutConfig["write"]);
+	}
+
+	return true;
+}
+
 
 bool OmnebulaGatewayServiceApp::loadHostConfig(Xml &hostsConfig)
 {
