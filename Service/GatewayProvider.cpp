@@ -184,6 +184,17 @@ GatewayFileProvider::GatewayFileProvider(const Xml &config, const String &target
 		{
 			m_defaultExtension = "." + m_defaultExtension;
 		}
+
+		Xml responseHeaders;
+		if (options.findChild("response-headers", responseHeaders))
+		{
+			for (auto current : responseHeaders)
+			{
+				String name = current.getTagName();
+				String value = current.getData();
+				m_responseHeaders[name] = value;
+			}
+		}
 	}
 }
 
@@ -204,6 +215,17 @@ void GatewayFileProvider::dispatchRequest(GatewayContext *context, const HttpUri
 		false);
 
 	syncConnectionType(context->request, *response);
+
+	if (response->succeeded())
+	{
+		if (!m_responseHeaders.isEmpty())
+		{
+			for (auto current : m_responseHeaders)
+			{
+				response->setHeader(current.first, current.second);
+			}
+		}
+	}
 
 	context->sendResponse(response);
 }

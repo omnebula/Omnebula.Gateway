@@ -76,6 +76,7 @@ protected:
 private:
 	String m_defaultFile;
 	String m_defaultExtension;
+	PropertyMap m_responseHeaders;
 };
 
 using GatewayFileProviderPtr = RefPointer<GatewayFileProvider>;
