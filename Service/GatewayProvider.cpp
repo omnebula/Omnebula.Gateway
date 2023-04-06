@@ -86,7 +86,7 @@ GatewayRedirectProvider::GatewayRedirectProvider(const Xml &config, const String
 {
 	m_newQuery = ELLIPSIS;
 
-	Http::SplitUri(m_target, &m_newScheme, &m_newHost, &m_newPath, &m_newQuery);
+	Http::SplitUrl(m_target, &m_newScheme, &m_newHost, &m_newPath, &m_newQuery);
 
 	if (m_newScheme == ELLIPSIS)
 	{
