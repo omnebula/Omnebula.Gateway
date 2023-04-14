@@ -40,6 +40,13 @@ bool OmnebulaGatewayServiceApp::initApp()
 	return true;
 }
 
+bool OmnebulaGatewayServiceApp::initLogging()
+{
+	AfxAttachLogConsoleSink();
+	return true;
+}
+
+
 bool OmnebulaGatewayServiceApp::initConfigs()
 {
 	if (!m_configMonitor.addFile(SERVICE_CONFIG_FILENAME, [this](Xml &serviceConfig) mutable { return loadServiceConfig(serviceConfig); })
