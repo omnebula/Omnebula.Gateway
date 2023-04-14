@@ -18,6 +18,7 @@ protected:
 	virtual bool initApp();
 	virtual void exitApp();
 
+	virtual bool initLogging();
 	bool initConfigs();
 	bool loadServiceConfig(Xml &serviceConfig);
 	bool initServiceCertificates(Xml &serviceConfig);
