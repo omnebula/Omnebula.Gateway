@@ -42,7 +42,15 @@ bool OmnebulaGatewayServiceApp::initApp()
 
 bool OmnebulaGatewayServiceApp::initLogging()
 {
-	AfxAttachLogConsoleSink();
+	if (AfxIsServiceSession())
+	{
+		AfxAttachLogFileSink();
+	}
+	else
+	{
+		AfxAttachLogConsoleSink();
+	}
+
 	return true;
 }
 
