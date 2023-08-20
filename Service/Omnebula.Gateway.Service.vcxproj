@@ -90,7 +90,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>SignTool sign /f "$(DevCertPath)\Joel Luzadas\Joel Luzadas Inc.pfx" /tr http://timestamp.digicert.com /td SHA256 /p "U93oO7aqeqw*hd" "$(TargetDir)$(TargetFileName)"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

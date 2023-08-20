@@ -40,7 +40,9 @@
 			</CustomActionLibrary>
 		</Component>
 	</Package>
+<!--
 	<PostBuild>
 		<Run>SignTool sign /f "%DevCertPath%\Joel Luzadas\Joel Luzadas Inc.pfx" /tr http://timestamp.digicert.com /td SHA256 /p "U93oO7aqeqw*hd" /d "Omnebula Gateway Service" "$(MsiFilePath)"</Run>
 	</PostBuild>
+-->
 </VSDX>
