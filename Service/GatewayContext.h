@@ -28,6 +28,8 @@ public:
 	void sendResponse(HttpResponsePtr response, io_handler_t &&handler = nullptr);
 	void sendErrorResponse(int statusCode, const char *statusMeaning = nullptr);
 
+	void beginRelay(NetStream *serverStream);
+
 	void reset();
 	void discard();
 
@@ -35,6 +37,19 @@ protected:
 	SyncMutex m_mutex;
 	NetStreamPtr m_serverStream;
 	GatewayDispatcher *m_dispatcher;
+
+private:
+	static const unsigned RELAY_BUFFER_SIZE = 8192;
+
+	SyncMutex m_relayMutex;
+
+	MemBuffer m_clientRelayBuffer;
+	MemBuffer m_serverRelayBuffer;
+
+	void beginClientRelay();
+	void closeClientRelay();
+	void beginServerRelay();
+	void closeServerRelay();
 };
 
 using GatewayContextPtr = RefPointer<GatewayContext>;

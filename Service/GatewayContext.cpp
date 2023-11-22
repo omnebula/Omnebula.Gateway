@@ -106,15 +106,20 @@ void GatewayContext::sendResponse(HttpResponsePtr response, io_handler_t &&handl
 				handler(state);
 			}
 
-			if (state->succeeded() && response->isKeepAlive())
+			// If m_stream is not null then we're in WebSocket mode.
+			if (!m_stream)
 			{
-				reset();
+				// Otherwise, continue to handle HTTP requests.
+				if (state->succeeded() && response->isKeepAlive())
+				{
+					reset();
 
-				beginRequest();
-			}
-			else
-			{
-				discard();
+					beginRequest();
+				}
+				else
+				{
+					discard();
+				}
 			}
 		}
 	);
@@ -126,6 +131,119 @@ void GatewayContext::sendErrorResponse(int statusCode, const char *statusMeaning
 	HttpResponsePtr response = new HttpServerResponse;
 	response->setStatus(statusCode, statusMeaning);
 	sendResponse(response);
+}
+
+
+void GatewayContext::beginRelay(NetStream *serverStream)
+{
+	// Hold on to the server stream.
+	m_serverStream = serverStream;
+
+	// Initialize relay buffers.
+	m_clientRelayBuffer.alloc(RELAY_BUFFER_SIZE);
+	m_serverRelayBuffer.alloc(RELAY_BUFFER_SIZE);
+
+	// Start relaying from both ends.
+	beginServerRelay();
+	beginClientRelay();
+}
+
+void GatewayContext::beginClientRelay()
+{
+	m_stream->read(
+		m_clientRelayBuffer, m_clientRelayBuffer.getCapacity(),
+		[this](IoState *state) mutable
+		{
+			size_t count = state->getTransferCount();
+			if (count)
+			{
+				m_serverStream->write(
+					m_clientRelayBuffer, count,
+					[this](IoState *state) mutable
+					{
+						if (state->succeeded())
+						{
+							beginClientRelay();
+						}
+						else
+						{
+							closeClientRelay();
+						}
+					}
+				);
+			}
+			else
+			{
+				closeClientRelay();
+			}
+		}
+	);
+}
+void GatewayContext::closeClientRelay()
+{
+	SyncLock lock(m_relayMutex);
+
+	m_clientRelayBuffer.free();
+	m_stream->close();
+	m_stream = nullptr;
+
+	if (m_serverStream)
+	{
+		m_serverStream->close();
+	}
+	else
+	{
+		discard();
+	}
+}
+
+void GatewayContext::beginServerRelay()
+{
+	m_serverStream->read(
+		m_serverRelayBuffer, m_serverRelayBuffer.getCapacity(),
+		[this](IoState *state) mutable
+		{
+			size_t count = state->getTransferCount();
+			if (count)
+			{
+				m_stream->write(
+					m_serverRelayBuffer, count,
+					[this](IoState *state) mutable
+					{
+						if (state->succeeded())
+						{
+							beginServerRelay();
+						}
+						else
+						{
+							closeServerRelay();
+						}
+					}
+				);
+			}
+			else
+			{
+				closeServerRelay();
+			}
+		}
+	);
+}
+void GatewayContext::closeServerRelay()
+{
+	SyncLock lock(m_relayMutex);
+
+	m_serverRelayBuffer.free();
+	m_serverStream->close();
+	m_serverStream = nullptr;
+
+	if (m_stream)
+	{
+		m_stream->close();
+	}
+	else
+	{
+		discard();
+	}
 }
 
 

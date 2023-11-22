@@ -321,26 +321,38 @@ void GatewayServerProvider::dispatchRequest(GatewayContext *context, const HttpU
 
 		context->sendRequest(
 			serverStream,
-			[pool, context, serverStream](IoState *state) mutable
+			[this, pool, context, serverStream](IoState *state) mutable
 			{
 				if (state->succeeded())
 				{
-					HttpResponsePtr clientResponse = new HttpResponse;
+					// Receive origin server's response.
+					HttpResponsePtr serverResponse = new HttpResponse;
 
 					context->receiveResponse(
-						clientResponse,
+						serverResponse,
 						serverStream,
-						[pool, context, serverStream, clientResponse](IoState *state) mutable
+						[this, pool, context, serverStream, serverResponse](IoState *state) mutable
 						{
 							if (state->succeeded())
 							{
+								// Send origin server's response to the client.
 								context->sendResponse(
-									clientResponse,
-									[pool, serverStream](IoState *state) mutable
+									serverResponse,
+									[this, pool, context, serverStream, serverResponse](IoState *state) mutable
 									{
 										if (state->succeeded())
 										{
-											pool->free(serverStream);
+											// Detect websocket.
+											if ((serverResponse->getStatusCode() == HttpStatus::SWITCH_PROTOCOLS)
+												&& serverResponse->hasHeader(HttpHeader::UPGRADE, Http::WEBSOCKET)
+												&& serverResponse->hasHeader(HttpHeader::CONNECTION, Http::UPGRADE_CONNECTION))
+											{
+												context->beginRelay(serverStream);
+											}
+											else
+											{
+												pool->free(serverStream);
+											}
 										}
 										else
 										{
