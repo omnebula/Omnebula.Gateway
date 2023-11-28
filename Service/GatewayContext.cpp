@@ -28,6 +28,8 @@ void GatewayContext::beginContext(NetStream *stream)
 
 void GatewayContext::beginRequest()
 {
+	reset();
+
 	receiveRequest(
 		getStream(),
 		[this](IoState *state) mutable
@@ -106,14 +108,10 @@ void GatewayContext::sendResponse(HttpResponsePtr response, io_handler_t &&handl
 				handler(state);
 			}
 
-			// If m_stream is not null then we're in WebSocket mode.
-			if (!m_stream)
+			if (!isRelay())
 			{
-				// Otherwise, continue to handle HTTP requests.
 				if (state->succeeded() && response->isKeepAlive())
 				{
-					reset();
-
 					beginRequest();
 				}
 				else
