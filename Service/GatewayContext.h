@@ -28,6 +28,7 @@ public:
 	void sendResponse(HttpResponsePtr response, io_handler_t &&handler = nullptr);
 	void sendErrorResponse(int statusCode, const char *statusMeaning = nullptr);
 
+	bool isRelay();
 	void beginRelay(NetStream *serverStream);
 
 	void reset();
@@ -70,4 +71,17 @@ inline void GatewayContext::sendRequest(NetStream *stream, io_handler_t &&handle
 inline void GatewayContext::reset()
 {
 	request.reset();
+
+	if (isRelay())
+	{
+		m_clientRelayBuffer.free();
+		m_serverRelayBuffer.free();
+		m_serverStream->close();
+		m_serverStream = nullptr;
+	}
+}
+
+inline bool GatewayContext::isRelay()
+{
+	return m_clientRelayBuffer.getCapacity();
 }
