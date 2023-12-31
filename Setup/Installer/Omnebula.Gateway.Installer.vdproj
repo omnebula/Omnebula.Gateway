@@ -39,12 +39,6 @@
         }
         "Entry"
         {
-        "MsmKey" = "8:_9E99FB2675CB6CD6F40CD62BB184FA0D"
-        "OwnerKey" = "8:_C23D9E60D91A4F8082E79A995C7E23F8"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
         "MsmKey" = "8:_C23D9E60D91A4F8082E79A995C7E23F8"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -64,12 +58,6 @@
         "Entry"
         {
         "MsmKey" = "8:_E54E68AD3F71002CDA2F20086AA24026"
-        "OwnerKey" = "8:_C23D9E60D91A4F8082E79A995C7E23F8"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
-        "MsmKey" = "8:_E6E27F072CD30FB19E4B0B46439E0DC3"
         "OwnerKey" = "8:_C23D9E60D91A4F8082E79A995C7E23F8"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -240,26 +228,6 @@
             "IsDependency" = "11:TRUE"
             "IsolateTo" = "8:"
             }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_9E99FB2675CB6CD6F40CD62BB184FA0D"
-            {
-            "SourcePath" = "8:gdiplus.dll"
-            "TargetName" = "8:gdiplus.dll"
-            "Tag" = "8:"
-            "Folder" = "8:_8BD8F597B74741E18C7E64CB665A96A2"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:TRUE"
-            "IsDependency" = "11:TRUE"
-            "IsolateTo" = "8:"
-            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_CFF47556F45EE0429369C330E8081D1C"
             {
             "SourcePath" = "8:RPCRT4.dll"
@@ -320,26 +288,6 @@
             "IsDependency" = "11:TRUE"
             "IsolateTo" = "8:"
             }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_E6E27F072CD30FB19E4B0B46439E0DC3"
-            {
-            "SourcePath" = "8:UxTheme.dll"
-            "TargetName" = "8:UxTheme.dll"
-            "Tag" = "8:"
-            "Folder" = "8:_8BD8F597B74741E18C7E64CB665A96A2"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:4"
-            "Exclude" = "11:TRUE"
-            "IsDependency" = "11:TRUE"
-            "IsolateTo" = "8:"
-            }
         }
         "FileType"
         {
@@ -396,15 +344,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Omnebula Gateway"
-        "ProductCode" = "8:{F1681325-E9C9-4747-9EE0-679A485AAD65}"
-        "PackageCode" = "8:{D3B4AA52-AE47-46AB-89FB-4A754FB93B24}"
+        "ProductCode" = "8:{EC8931E8-BC7F-449E-83BF-6CB50F6B549C}"
+        "PackageCode" = "8:{F80B0DC7-53C7-497C-AD64-071E82EB2516}"
         "UpgradeCode" = "8:{6322BD78-919F-4380-ADEC-F4807819B038}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:1.3.1"
+        "ProductVersion" = "8:1.4.0"
         "Manufacturer" = "8:Joel Luzadas Inc"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -918,7 +866,7 @@
         {
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_C23D9E60D91A4F8082E79A995C7E23F8"
             {
-            "SourcePath" = "8:..\\..\\Service\\Output\\Debug\\x64\\Omnebula.Gateway.Service.exe"
+            "SourcePath" = "8:..\\..\\Service\\Output\\Release\\x64\\Omnebula.Gateway.Service.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_8BD8F597B74741E18C7E64CB665A96A2"
