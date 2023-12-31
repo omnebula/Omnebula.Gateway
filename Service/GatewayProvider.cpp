@@ -365,6 +365,7 @@ void GatewayServerProvider::dispatchRequest(GatewayContext *context, const HttpU
 							{
 								serverStream->close();
 								context->sendErrorResponse(HttpStatus::SERVICE_UNAVAIL, "host unavailable");
+								state->setErrorCode(ERROR_SUCCESS);
 							}
 						}
 					);
@@ -373,6 +374,7 @@ void GatewayServerProvider::dispatchRequest(GatewayContext *context, const HttpU
 				{
 					serverStream->close();
 					context->sendErrorResponse(HttpStatus::SERVICE_UNAVAIL, "host unavailable");
+					state->setErrorCode(ERROR_SUCCESS);
 				}
 			}
 		);
