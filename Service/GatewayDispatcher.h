@@ -17,7 +17,7 @@ public:
 	String getConnectorString() const;
 
 	void setHostMap(GatewayHostMap *hostMap);
-	GatewayHostPtr lookupHost(const char *hostName);
+	virtual GatewayHostPtr lookupHost(const char *hostName);
 
 	using NetServer::endContext;
 
@@ -49,10 +49,4 @@ inline void GatewayDispatcher::setHostMap(GatewayHostMap *hostMap)
 	m_hostMutex.lock();
 	m_hostMap = hostMap;
 	m_hostMutex.unlock();
-}
-
-inline GatewayHostPtr GatewayDispatcher::lookupHost(const char *hostName)
-{
-	SyncSharedLock lock(m_hostMutex);
-	return m_hostMap->lookup(hostName);
 }

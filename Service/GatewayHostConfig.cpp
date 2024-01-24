@@ -131,15 +131,23 @@ void GatewayHostConfig::loadHost(
 			String tagName = childConfig.getTagName();
 			if (tagName.compareNoCase("redirect") == 0)
 			{
-				host->addProvider(uri, new GatewayRedirectProvider(childConfig, target));
+				host->addProvider(uri, new GatewayRedirectProvider(host, childConfig, target));
 			}
 			else if (tagName.compareNoCase("file") == 0)
 			{
-				host->addProvider(uri, new GatewayFileProvider(childConfig, target));
+				host->addProvider(uri, new GatewayFileProvider(host, childConfig, target));
 			}
 			else if (tagName.compareNoCase("server") == 0)
 			{
-				host->addProvider(uri, new GatewayServerProvider(childConfig, target));
+				host->addProvider(uri, new GatewayServerProvider(host, childConfig, target));
+			}
+			else if (tagName.compareNoCase("publisher") == 0)
+			{
+				host->addProvider(uri, new GatewayPublisherProvider(host, childConfig, target));
+			}
+			else if (tagName.compareNoCase("subscriber") == 0)
+			{
+				host->addProvider(uri, new GatewaySubscriberProvider(host, childConfig, target));
 			}
 			else
 			{

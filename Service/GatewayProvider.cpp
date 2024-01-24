@@ -12,8 +12,9 @@ static const String QUERY_ELLIPSIS = "?...";
 // class GatewayProvider
 //
 
-GatewayProvider::GatewayProvider(const Xml &providerConfig, const String &target)
+GatewayProvider::GatewayProvider(GatewayHost *host, const Xml &providerConfig, const String &target)
 {
+	m_host = host;
 	m_target = target;
 
 	providerConfig.getAttribute("uri", m_uri);
@@ -77,12 +78,13 @@ void GatewayProvider::beginDispatch(GatewayContext *context, const HttpUri &uri)
 }
 
 
+
 //////////////////////////////////////////////////////////////////////////
 // class GatewayRedirectProvider
 //
 
-GatewayRedirectProvider::GatewayRedirectProvider(const Xml &config, const String &target) :
-	GatewayProvider(config, target)
+GatewayRedirectProvider::GatewayRedirectProvider(GatewayHost *host, const Xml &config, const String &target) :
+	GatewayProvider(host, config, target)
 {
 	m_newQuery = ELLIPSIS;
 
@@ -168,8 +170,8 @@ void GatewayRedirectProvider::dispatchRequest(GatewayContext *context, const Htt
 // class GatewayFileProvider
 //
 
-GatewayFileProvider::GatewayFileProvider(const Xml &config, const String &target) :
-	GatewayProvider(config, target)
+GatewayFileProvider::GatewayFileProvider(GatewayHost *host, const Xml &config, const String &target) :
+	GatewayProvider(host, config, target)
 {
 	m_target.trimRight("\\");
 	m_target.trimRight("/");
@@ -235,8 +237,8 @@ void GatewayFileProvider::dispatchRequest(GatewayContext *context, const HttpUri
 // class GatewayServerProvider
 //
 
-GatewayServerProvider::GatewayServerProvider(const Xml &config, const String &target) :
-	GatewayProvider(config, target)
+GatewayServerProvider::GatewayServerProvider(GatewayHost *host, const Xml &config, const String &target) :
+	GatewayProvider(host, config, target)
 {
 	Xml optionConfig;
 	if (config.findChild("options", optionConfig))
@@ -258,7 +260,10 @@ GatewayServerProvider::GatewayServerProvider(const Xml &config, const String &ta
 		}
 	}
 
-	m_connectionPool = AcquireConnectionPool(m_target);
+	if (!m_target.isEmpty())
+	{
+		m_connectionPool = AcquireConnectionPool(m_target);
+	}
 }
 
 GatewayServerProvider::~GatewayServerProvider()
@@ -310,80 +315,101 @@ void GatewayServerProvider::dispatchRequest(GatewayContext *context, const HttpU
 		context->request.setUri(newUri);
 	}
 
-	// Send to origin server.
-	NetStreamPtr serverStream = m_connectionPool->alloc();
-	if (serverStream)
+	// Allocate stream to origin server.
+	NetStreamPtr serverStream;
+	if (!allocateConnection(context, serverStream))
 	{
-		// Use a ref-pointer to ensure that the pool remains valid throughout async i/o routines.
-		// Otherwise, it may be prematurely deleted during configuration changes and crash when
-		// pool->free() is called.
-		ConnectionPoolPtr pool = m_connectionPool;
+		return;
+	}
 
-		context->sendRequest(
-			serverStream,
-			[this, pool, context, serverStream](IoState *state) mutable
+	if (!serverStream)
+	{
+		context->sendErrorResponse(HttpStatus::SERVICE_UNAVAIL, "host unavailable");
+		return;
+	}
+
+	sendToServer(context, serverStream);
+}
+
+void GatewayServerProvider::sendToServer(GatewayContext *context, NetStreamPtr serverStream)
+{
+	// Use a ref-pointer to ensure that the pool remains valid throughout async i/o routines.
+	// Otherwise, it may be prematurely deleted during configuration changes and crash when
+	// pool->free() is called.
+	ConnectionPoolPtr pool = m_connectionPool;
+
+	context->sendRequest(
+		serverStream,
+		[this, pool, context, serverStream](IoState *state) mutable
+		{
+			if (state->succeeded())
 			{
-				if (state->succeeded())
-				{
-					// Receive origin server's response.
-					HttpResponsePtr serverResponse = new HttpResponse;
+				// Receive origin server's response.
+				HttpResponsePtr serverResponse = new HttpResponse;
 
-					context->receiveResponse(
-						serverResponse,
-						serverStream,
-						[this, pool, context, serverStream, serverResponse](IoState *state) mutable
+				context->receiveResponse(
+					serverResponse,
+					serverStream,
+					[this, pool, context, serverStream, serverResponse](IoState *state) mutable
+					{
+						if (state->succeeded())
 						{
-							if (state->succeeded())
-							{
-								// Send origin server's response to the client.
-								context->sendResponse(
-									serverResponse,
-									[this, pool, context, serverStream, serverResponse](IoState *state) mutable
+							// Send origin server's response to the client.
+							context->sendResponse(
+								serverResponse,
+								[this, pool, context, serverStream, serverResponse](IoState *state) mutable
+								{
+									if (state->succeeded())
 									{
-										if (state->succeeded())
+										// Detect websocket.
+										if ((serverResponse->getStatusCode() == HttpStatus::SWITCH_PROTOCOLS)
+											&& serverResponse->hasHeader(HttpHeader::UPGRADE, Http::WEBSOCKET)
+											&& serverResponse->hasHeader(HttpHeader::CONNECTION, Http::UPGRADE_CONNECTION))
 										{
-											// Detect websocket.
-											if ((serverResponse->getStatusCode() == HttpStatus::SWITCH_PROTOCOLS)
-												&& serverResponse->hasHeader(HttpHeader::UPGRADE, Http::WEBSOCKET)
-												&& serverResponse->hasHeader(HttpHeader::CONNECTION, Http::UPGRADE_CONNECTION))
-											{
-												context->beginRelay(serverStream);
-											}
-											else
-											{
-												pool->free(serverStream);
-											}
+											context->beginRelay(serverStream);
 										}
 										else
 										{
-											serverStream->close();
+											freeConnection(serverStream, pool);
 										}
 									}
-								);
-							}
-							else
-							{
-								serverStream->close();
-								context->sendErrorResponse(HttpStatus::SERVICE_UNAVAIL, "host unavailable");
-								state->setErrorCode(ERROR_SUCCESS);
-							}
+									else
+									{
+										serverStream->close();
+									}
+								}
+							);
 						}
-					);
-				}
-				else
-				{
-					serverStream->close();
-					context->sendErrorResponse(HttpStatus::SERVICE_UNAVAIL, "host unavailable");
-					state->setErrorCode(ERROR_SUCCESS);
-				}
+						else
+						{
+							serverStream->close();
+							context->sendErrorResponse(HttpStatus::SERVICE_UNAVAIL, "host unavailable");
+							state->setErrorCode(ERROR_SUCCESS);
+						}
+					}
+				);
 			}
-		);
-	}
-	else
-	{
-		context->sendErrorResponse(HttpStatus::SERVICE_UNAVAIL, "host unavailable");
-	}
+			else
+			{
+				serverStream->close();
+				context->sendErrorResponse(HttpStatus::SERVICE_UNAVAIL, "host unavailable");
+				state->setErrorCode(ERROR_SUCCESS);
+			}
+		}
+	);
 }
+
+bool GatewayServerProvider::allocateConnection(GatewayContext *context, NetStreamPtr &serverStream)
+{
+	serverStream = m_connectionPool->alloc();
+	return true;
+}
+
+void GatewayServerProvider::freeConnection(NetStreamPtr serverStream, ConnectionPool *pool)
+{
+	(pool ? pool : m_connectionPool)->free(serverStream);
+}
+
 
 
 SyncMutex GatewayServerProvider::sm_connectionPoolMapMutex;
@@ -432,4 +458,251 @@ void GatewayServerProvider::ReleaseConnectionPool(const String &connector)
 			sm_connectionPoolMap.erase(it);
 		}
 	}
+}
+
+
+//////////////////////////////////////////////////////////////////////////
+// class GatewayPublisherProvider
+//
+
+GatewayPublisherProvider::GatewayPublisherProvider(GatewayHost *host, const Xml &config, const String &target) :
+	GatewayServerProvider(host, config, nullptr)
+{
+	m_target = target;
+	m_connectionPool = new ConnectionPool;
+	m_connectionPool->m_acquisitionCount++;
+	sm_connectionPoolMap[m_target] = m_connectionPool;
+
+	host->addProvider("/@subscriber" + getTarget(), new GatewayPublisherProvider::SubscriberAcceptor(this));
+}
+
+GatewayPublisherProvider::~GatewayPublisherProvider()
+{
+	WebSocketServer::exit();
+	m_sendQueue.waitForIdle();
+}
+
+
+void GatewayPublisherProvider::dispatchRequest(GatewayContext *context, const HttpUri &uri)
+{
+	__super::dispatchRequest(context, uri);
+}
+
+bool GatewayPublisherProvider::allocateConnection(GatewayContext *context, NetStreamPtr &serverStream)
+{
+	serverStream = m_connectionPool->alloc(false);
+	if (serverStream)
+	{
+		return true;
+	}
+
+	{
+		SyncLock lock(m_mutex);
+
+		if (!m_controllerContext)
+		{
+			return true;
+		}
+
+		m_pendingConnections.push(context);
+	}
+
+	static const String ATTACH_COMMAND;
+	m_controllerContext->sendText(ATTACH_COMMAND);
+
+	return false;
+}
+
+void GatewayPublisherProvider::freeConnection(NetStreamPtr serverStream, ConnectionPool *pool)
+{
+	GatewayContext *pendingContext{ nullptr };
+
+	{
+		SyncLock lock(m_mutex);
+
+		if (!m_pendingConnections.empty())
+		{
+			pendingContext = m_pendingConnections.front();
+			m_pendingConnections.pop();
+		}
+	}
+
+	if (pendingContext)
+	{
+ 		sendToServer(pendingContext, serverStream);
+	}
+	else
+	{
+		__super::freeConnection(serverStream, pool);
+	}
+}
+
+
+void GatewayPublisherProvider::onClose(Context *context)
+{
+	if (m_controllerContext == context)
+	{
+		m_controllerContext = nullptr;
+	}
+	__super::onClose(context);
+}
+
+
+void GatewayPublisherProvider::attachSubscriber(GatewayContext *subscriberContext)
+{
+	HttpRequest &request = subscriberContext->request;
+
+	if (request.hasHeader(HttpHeader::UPGRADE, Http::WEBSOCKET))
+	{
+		HttpResponsePtr response = new HttpResponse;
+
+		if (m_controllerContext)
+		{
+			response->setStatus(HttpStatus::CONFLICT, "already connected");
+		}
+		else
+		{
+			m_controllerContext = beginConnection(*subscriberContext, subscriberContext->request, *response);
+			if (m_controllerContext)
+			{
+				subscriberContext->discard();
+			}
+			else
+			{
+				response->setStatus(HttpStatus::SERVER_ERROR);
+			}
+		}
+
+	}
+	else if (request.getMethod() == "X-SUBSCRIBER-ATTACH")
+	{
+		if (m_controllerContext)
+		{
+			NetStreamPtr serverStream = subscriberContext->detachStream();
+			freeConnection(serverStream);
+		}
+
+		subscriberContext->discard();
+	}
+	else
+	{
+		subscriberContext->sendErrorResponse(HttpStatus::NOT_FOUND);
+	}
+}
+
+
+void GatewayPublisherProvider::SubscriberAcceptor::dispatchRequest(GatewayContext *context, const HttpUri &uri)
+{
+	m_publisher->attachSubscriber(context);
+}
+
+
+
+//////////////////////////////////////////////////////////////////////////
+// class GatewaySubscriberProvider
+//
+
+GatewaySubscriberProvider::GatewaySubscriberProvider(GatewayHost *host, const Xml &config, const String &target) :
+	GatewayServerProvider(host, config, nullptr)
+{
+	String publisher = config.getAttribute("publisher");
+
+	String protocol, address;
+	publisher.splitLeft(":", &protocol, &address);
+	if (protocol.compareNoCase("tls") == 0)
+	{
+		m_socketUrl.format("wss://%s/@subscriber%s", address, m_uri);
+		m_attachUrl.format("https://%s/@subscriber%s", address, m_uri);
+	}
+	else
+	{
+		m_socketUrl.format("ws://%s/@subscriber%s", address, m_uri);
+		m_attachUrl.format("http://%s/@subscriber%s", address, m_uri);
+	}
+
+	initDispatcher();
+	initPublisher();
+}
+
+GatewaySubscriberProvider::~GatewaySubscriberProvider()
+{
+	m_isActive = false;
+
+	m_publisherSocket.close();
+
+	if (m_dispatcher)
+	{
+		m_dispatcher->stop();
+		m_dispatcher->__decRef();
+	}
+}
+
+
+void GatewaySubscriberProvider::initDispatcher()
+{
+	class Dispatcher : public GatewayDispatcher
+	{
+	public:
+		GatewayHost *m_host;
+		Dispatcher(GatewayHost *host) : m_host(host)
+		{
+		}
+		virtual GatewayHostPtr lookupHost(const char *hostName) override {
+			return m_host;
+		}
+	};
+
+	m_dispatcher = new Dispatcher(getHost());
+	m_dispatcher->__incRef();
+}
+
+void GatewaySubscriberProvider::initPublisher()
+{
+	if (!m_publisherSocket.onText)
+	{
+		m_publisherSocket.onText = [this](String text) mutable
+			{
+				sendAttachRequest();
+			};
+		m_publisherSocket.onClose = [this]() mutable
+			{
+				if (m_isActive)
+				{
+					connectToPublisher();
+				}
+			};
+	}
+
+	connectToPublisher();
+}
+
+void GatewaySubscriberProvider::connectToPublisher()
+{
+	static ThreadQueue s_connectQueue(INFINITE);
+	s_connectQueue.push([this]() mutable
+		{
+			while (!(m_isActive = m_publisherSocket.connect(m_socketUrl)))
+			{
+				AfxGetServiceApp()->waitForExit(500);
+			}
+		}
+	);
+}
+
+void GatewaySubscriberProvider::sendAttachRequest()
+{
+	HttpClient http;
+	if (!http.sendRequest("X-SUBSCRIBER-ATTACH", m_attachUrl))
+	{
+		return;
+	}
+
+	NetStreamPtr stream = http.detachStream();
+
+	m_dispatcher->beginContext(stream);
+}
+
+
+void GatewaySubscriberProvider::dispatchRequest(GatewayContext *context, const HttpUri &uri)
+{
 }

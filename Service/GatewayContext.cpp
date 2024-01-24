@@ -39,8 +39,8 @@ void GatewayContext::beginRequest()
 				AfxPushIoProcess(
 					[this]() mutable
 					{
-						String hostName = request.getHost();
-						hostName.splitRight(":", &hostName, nullptr);
+ 						String hostName = request.getHost();
+// 						hostName.splitRight(":", &hostName, nullptr);
 
 						GatewayHostPtr host = m_dispatcher->lookupHost(hostName);
 						if (host)

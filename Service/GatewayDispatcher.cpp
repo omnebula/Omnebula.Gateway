@@ -8,6 +8,11 @@
 
 bool GatewayDispatcher::start(const String &connectorString)
 {
+	if (!NetServer::start())
+	{
+		return false;
+	}
+
 	m_connectorString = connectorString;
 	return startListener(m_connectorString);
 }
@@ -23,4 +28,11 @@ void GatewayDispatcher::stop(unsigned timeout)
 NetContext *GatewayDispatcher::createContext()
 {
 	return new GatewayContext(this);
+}
+
+
+GatewayHostPtr GatewayDispatcher::lookupHost(const char *hostName)
+{
+	SyncSharedLock lock(m_hostMutex);
+	return m_hostMap->lookup(hostName);
 }

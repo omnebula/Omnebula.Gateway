@@ -1,6 +1,7 @@
 #pragma once
 
 
+class GatewayHost;
 class GatewayContext;
 class GatewayResponseContext;
 class GatewayDispatcher;
@@ -13,7 +14,9 @@ class GatewayDispatcher;
 class GatewayProvider : public RefCounter
 {
 public:
-	GatewayProvider(const Xml &config, const String &target);
+	GatewayProvider(GatewayHost *host, const Xml &config, const String &target);
+
+	GatewayHost *getHost() const;
 
 	String getUri() const;
 	String splitVirtualPath(const String &urlPath) const;
@@ -23,6 +26,8 @@ public:
 	void beginDispatch(GatewayContext *context, const HttpUri &uri);
 
 protected:
+	GatewayProvider() = default;
+
 	virtual void dispatchRequest(GatewayContext *context, const HttpUri &uri) = 0;
 
 protected:
@@ -31,6 +36,8 @@ protected:
 
 	String m_basicAuthRealm;
 	PropertyMap m_basicAuthUsers;
+
+	GatewayHost *m_host{ nullptr };
 
 protected:
 	void syncConnectionType(HttpRequest &request, HttpResponse &response);
@@ -46,7 +53,7 @@ using GatewayProviderPtr = RefPointer<GatewayProvider>;
 class GatewayRedirectProvider : public GatewayProvider
 {
 public:
-	GatewayRedirectProvider(const Xml &config, const String &target);
+	GatewayRedirectProvider(GatewayHost *host, const Xml &config, const String &target);
 
 protected:
 	virtual void dispatchRequest(GatewayContext *context, const HttpUri &uri);
@@ -68,7 +75,7 @@ using GatewayRedirectProviderPtr = RefPointer<GatewayRedirectProvider>;
 class GatewayFileProvider : public GatewayProvider
 {
 public:
-	GatewayFileProvider(const Xml &config, const String &target);
+	GatewayFileProvider(GatewayHost *host, const Xml &config, const String &target);
 
 protected:
 	virtual void dispatchRequest(GatewayContext *context, const HttpUri &uri);
@@ -89,13 +96,17 @@ using GatewayFileProviderPtr = RefPointer<GatewayFileProvider>;
 class GatewayServerProvider : public GatewayProvider
 {
 public:
-	GatewayServerProvider(const Xml &config, const String &target);
+	GatewayServerProvider(GatewayHost *host, const Xml &config, const String &target);
 	virtual ~GatewayServerProvider();
 
 protected:
+	GatewayServerProvider() = default;
+
 	virtual void dispatchRequest(GatewayContext *context, const HttpUri &uri);
 
-private:
+	void sendToServer(GatewayContext *context, NetStreamPtr serverStream);
+
+protected:
 	/* Options */
 	String m_newHost;
 	String m_newPath;
@@ -109,6 +120,7 @@ private:
 		ConnectionPool();
 	};
 	using ConnectionPoolPtr = RefPointer<ConnectionPool>;
+	ConnectionPool *m_connectionPool{ nullptr };
 
 	static SyncMutex sm_connectionPoolMapMutex;
 	static std::unordered_map<String, ConnectionPoolPtr> sm_connectionPoolMap;
@@ -116,16 +128,99 @@ private:
 	static ConnectionPool *AcquireConnectionPool(const String &connector);
 	static void ReleaseConnectionPool(const String &connector);
 
-	ConnectionPool *m_connectionPool;
+	virtual bool allocateConnection(GatewayContext *context, NetStreamPtr &serverStream);
+	virtual void freeConnection(NetStreamPtr serverStream, ConnectionPool *pool = nullptr);
 };
 
 using GatewayServerProviderPtr = RefPointer<GatewayServerProvider>;
 
 
 
+//////////////////////////////////////////////////////////////////////////
+// class GatewayPublisherProvider
+//
+
+class GatewayPublisherProvider : public GatewayServerProvider, public WebSocketServer
+{
+public:
+	GatewayPublisherProvider(GatewayHost *host, const Xml &config, const String &target);
+	virtual ~GatewayPublisherProvider();
+
+protected:
+	virtual void dispatchRequest(GatewayContext *context, const HttpUri &uri) override;
+
+	// Allocate/free remote origin server connection.
+	virtual bool allocateConnection(GatewayContext *context, NetStreamPtr &serverStream) override;
+	virtual void freeConnection(NetStreamPtr serverStream, ConnectionPool *pool = nullptr) override;
+
+	virtual void onClose(Context *context);
+
+private:
+	SyncMutex m_mutex;
+	std::queue<GatewayContext*> m_pendingConnections;
+	Context::Ptr m_controllerContext;
+	ThreadQueue m_sendQueue{ INFINITE };
+
+	void attachSubscriber(GatewayContext *context);
+
+private:
+	class SubscriberAcceptor : public GatewayServerProvider
+	{
+	public:
+		SubscriberAcceptor(GatewayPublisherProvider *publisher) :
+			m_publisher(publisher)
+		{
+		}
+
+		virtual void dispatchRequest(GatewayContext *context, const HttpUri &uri);
+
+	private:
+		GatewayPublisherProvider *m_publisher;
+	};
+};
+
+using GatewayPublisherProviderPtr = RefPointer<GatewayPublisherProvider>;
+
+
+//////////////////////////////////////////////////////////////////////////
+// class GatewaySubscriberProvider
+//
+
+class GatewaySubscriberProvider : public GatewayServerProvider
+{
+public:
+	GatewaySubscriberProvider(GatewayHost *host, const Xml &config, const String &target);
+	virtual ~GatewaySubscriberProvider();
+
+protected:
+	virtual void dispatchRequest(GatewayContext *context, const HttpUri &uri) override;
+
+private:
+	void initDispatcher();
+	void initPublisher();
+	void connectToPublisher();
+	void sendAttachRequest();
+
+private:
+	String m_socketUrl;
+	String m_attachUrl;
+	WebSocketClient m_publisherSocket;
+	std::atomic_bool m_isActive{ false };
+
+	GatewayDispatcher *m_dispatcher{ nullptr };
+};
+
+using GatewaySubscriberProviderPtr = RefPointer<GatewaySubscriberProvider>;
+
+
+
 /*
 * Inline Implementations
 */
+inline GatewayHost *GatewayProvider::getHost() const
+{
+	return m_host;
+}
 
 inline String GatewayProvider::getUri() const
 {
