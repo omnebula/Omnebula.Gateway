@@ -157,12 +157,17 @@ void GatewayHostConfig::loadHost(
 		hostProps.get("listener", prop);
 		__NormalizeConnectors(hostConnectors, prop);
 
+		if (hostConnectors.empty())
+		{
+			hostConnectors.insert("");
+		}
+
 		for (auto &connectorString : hostConnectors)
 		{
 			String scheme;
 			connectorString.splitLeft(":", &scheme, nullptr);
 
-			if (!NetProtocol::LookupScheme(scheme))
+			if (!scheme.isEmpty() && !NetProtocol::LookupScheme(scheme))
 			{
 				throw Exception("unknown listener protocol '%s'", scheme);
 			}

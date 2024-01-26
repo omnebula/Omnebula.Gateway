@@ -8,6 +8,11 @@
 
 bool GatewayDispatcher::start(const String &connectorString)
 {
+	if (connectorString)
+	{
+		return true;
+	}
+
 	if (!NetServer::start())
 	{
 		return false;
