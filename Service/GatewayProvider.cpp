@@ -605,6 +605,8 @@ void GatewayPublisherProvider::SubscriberAcceptor::dispatchRequest(GatewayContex
 GatewaySubscriberProvider::GatewaySubscriberProvider(GatewayHost *host, const Xml &config, const String &publisher) :
 	GatewayServerProvider(host, config, nullptr)
 {
+	m_target = publisher;
+
 	String protocol, address;
 	publisher.splitLeft(":", &protocol, &address);
 	if (protocol.compareNoCase("tls") == 0)
@@ -679,10 +681,18 @@ void GatewaySubscriberProvider::connectToPublisher()
 	static ThreadQueue s_connectQueue(INFINITE);
 	s_connectQueue.push([this]() mutable
 		{
+			if (m_isActive)
+			{
+				AfxLogInfo("Restarting subscriber '%s%s'...", getTarget(), getUri());
+			}
+
 			while (!(m_isActive = m_publisherSocket.connect(m_socketUrl)))
 			{
 				AfxGetServiceApp()->waitForExit(500);
 			}
+
+
+			AfxLogInfo("Started subscriber '%s%s'", getTarget(), getUri());
 		}
 	);
 }
