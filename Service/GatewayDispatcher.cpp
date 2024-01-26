@@ -8,7 +8,7 @@
 
 bool GatewayDispatcher::start(const String &connectorString)
 {
-	if (connectorString)
+	if (connectorString.isEmpty())
 	{
 		return true;
 	}
