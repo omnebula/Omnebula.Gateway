@@ -28,6 +28,11 @@ void GatewayHostConfig::traverse(
 {
 	for (auto &childConfig : parentConfig)
 	{
+		if (childConfig.getAttribute("disabled") == "true")
+		{
+			continue;
+		}
+
 		PropertyMap localProps;
 		if (!childConfig.getAttributes().isEmpty())
 		{
