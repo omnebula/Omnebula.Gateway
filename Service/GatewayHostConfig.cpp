@@ -104,16 +104,6 @@ void GatewayHostConfig::loadHost(
 		throw Exception("missing host name");
 	}
 
-	StringSet hostConnectors;
-	if (!hostProps.get("listener", prop))
-	{
-		throw Exception("missing host listener");
-	}
-	else if (!__NormalizeConnectors(hostConnectors, prop))
-	{
-		throw Exception("no listeners defined");
-	}
-
 	GatewayHostPtr host = new GatewayHost;
 
 	traverse(
@@ -163,6 +153,10 @@ void GatewayHostConfig::loadHost(
 
 	if (host->getProviderCount() > 0)
 	{
+		StringSet hostConnectors;
+		hostProps.get("listener", prop);
+		__NormalizeConnectors(hostConnectors, prop);
+
 		for (auto &connectorString : hostConnectors)
 		{
 			String scheme;

@@ -602,11 +602,9 @@ void GatewayPublisherProvider::SubscriberAcceptor::dispatchRequest(GatewayContex
 // class GatewaySubscriberProvider
 //
 
-GatewaySubscriberProvider::GatewaySubscriberProvider(GatewayHost *host, const Xml &config, const String &target) :
+GatewaySubscriberProvider::GatewaySubscriberProvider(GatewayHost *host, const Xml &config, const String &publisher) :
 	GatewayServerProvider(host, config, nullptr)
 {
-	String publisher = config.getAttribute("publisher");
-
 	String protocol, address;
 	publisher.splitLeft(":", &protocol, &address);
 	if (protocol.compareNoCase("tls") == 0)
