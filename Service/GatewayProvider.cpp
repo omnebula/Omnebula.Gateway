@@ -538,6 +538,12 @@ void GatewayPublisherProvider::freeConnection(NetStreamPtr serverStream, Connect
 }
 
 
+void GatewayPublisherProvider::onError(Context *context, Context::Error &error)
+{
+	context->close();
+	onClose(context);
+}
+
 void GatewayPublisherProvider::onClose(Context *context)
 {
 	if (m_controllerContext == context)
@@ -664,13 +670,20 @@ void GatewaySubscriberProvider::initPublisher()
 			{
 				sendAttachRequest();
 			};
-		m_publisherSocket.onClose = [this]() mutable
+		m_publisherSocket.onError = [this](WebSocketContext::Error &error) mutable
 			{
 				if (m_isActive)
 				{
 					connectToPublisher();
 				}
 			};
+// 		m_publisherSocket.onClose = [this]() mutable
+// 			{
+// 				if (m_isActive)
+// 				{
+// 					connectToPublisher();
+// 				}
+// 			};
 	}
 
 	connectToPublisher();
@@ -685,6 +698,8 @@ void GatewaySubscriberProvider::connectToPublisher()
 			{
 				AfxLogInfo("Restarting subscriber '%s%s'...", getTarget(), getUri());
 			}
+
+			m_publisherSocket.close();
 
 			while (!(m_isActive = m_publisherSocket.connect(m_socketUrl)))
 			{

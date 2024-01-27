@@ -153,6 +153,7 @@ protected:
 	virtual bool allocateConnection(GatewayContext *context, NetStreamPtr &serverStream) override;
 	virtual void freeConnection(NetStreamPtr serverStream, ConnectionPool *pool = nullptr) override;
 
+	virtual void onError(Context *context, Context::Error &error);
 	virtual void onClose(Context *context);
 
 private:
