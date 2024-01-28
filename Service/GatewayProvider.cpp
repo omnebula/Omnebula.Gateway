@@ -255,7 +255,7 @@ GatewayServerProvider::GatewayServerProvider(GatewayHost *host, const Xml &confi
 	if (config.findChild("options", optionConfig))
 	{
 		m_newHost = optionConfig.getAttribute("new-host");
-		
+
 		String newUri = optionConfig.getAttribute("new-uri");
 		if (!newUri.isEmpty())
 		{
@@ -567,7 +567,7 @@ void GatewayPublisherProvider::freeConnection(NetStreamPtr serverStream, Connect
 
 	if (pendingContext)
 	{
- 		sendToServer(pendingContext, serverStream);
+		sendToServer(pendingContext, serverStream);
 	}
 	else
 	{
@@ -579,8 +579,8 @@ void GatewayPublisherProvider::freeConnection(NetStreamPtr serverStream, Connect
 void GatewayPublisherProvider::onError(Context *context, Context::Error &error)
 {
 	__super::onError(context, error);
-//	context->close();
-//	onClose(context);
+	//	context->close();
+	//	onClose(context);
 }
 
 void GatewayPublisherProvider::onClose(Context *context)
@@ -721,8 +721,6 @@ void GatewaySubscriberProvider::initPublisher()
 	m_isActive = true;
 
 	connectToPublisher();
-
-	AfxLogInfo("Started subscriber '%s%s'", getTarget(), getUri());
 }
 
 void GatewaySubscriberProvider::connectToPublisher()
@@ -733,6 +731,7 @@ void GatewaySubscriberProvider::connectToPublisher()
 			{
 				if (m_publisherSocket.connect(m_socketUrl))
 				{
+					AfxLogInfo("Connected subscriber '%s%s'", getTarget(), getUri());
 					break;
 				}
 			}
@@ -743,14 +742,21 @@ void GatewaySubscriberProvider::connectToPublisher()
 void GatewaySubscriberProvider::sendAttachRequest()
 {
 	HttpClient http;
-	if (!http.sendRequest("X-SUBSCRIBER-ATTACH", m_attachUrl))
+	bool attached = false;
+	for (int retries = 3; !attached && (retries > 0); --retries)
 	{
-		return;
+		attached = http.sendRequest("X-SUBSCRIBER-ATTACH", m_attachUrl);
 	}
 
-	NetStreamPtr stream = http.detachStream();
-
-	m_dispatcher->beginContext(stream);
+	if (attached)
+	{
+		NetStreamPtr stream = http.detachStream();
+		m_dispatcher->beginContext(stream);
+	}
+	else
+	{
+		AfxLogError("Unable to attach subscriber to %s", m_attachUrl);
+	}
 }
 
 
