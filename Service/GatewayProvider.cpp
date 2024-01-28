@@ -673,6 +673,8 @@ GatewaySubscriberProvider::~GatewaySubscriberProvider()
 
 	m_publisherSocket.close();
 
+	m_connectQueue.waitForIdle();
+
 	if (m_dispatcher)
 	{
 		m_dispatcher->stop();
@@ -707,44 +709,33 @@ void GatewaySubscriberProvider::initPublisher()
 			{
 				sendAttachRequest();
 			};
-		m_publisherSocket.onError = [this](WebSocketContext::Error &error) mutable
+		m_publisherSocket.onClose = [this]() mutable
 			{
 				if (m_isActive)
 				{
 					connectToPublisher();
 				}
 			};
-// 		m_publisherSocket.onClose = [this]() mutable
-// 			{
-// 				if (m_isActive)
-// 				{
-// 					connectToPublisher();
-// 				}
-// 			};
 	}
 
+	m_isActive = true;
+
 	connectToPublisher();
+
+	AfxLogInfo("Started subscriber '%s%s'", getTarget(), getUri());
 }
 
 void GatewaySubscriberProvider::connectToPublisher()
 {
-	static ThreadQueue s_connectQueue(INFINITE);
-	s_connectQueue.push([this]() mutable
+	m_connectQueue.push([this]() mutable
 		{
-			if (m_isActive)
+			while (m_isActive)
 			{
-				AfxLogInfo("Restarting subscriber '%s%s'...", getTarget(), getUri());
+				if (m_publisherSocket.connect(m_socketUrl))
+				{
+					break;
+				}
 			}
-
-			m_publisherSocket.close();
-
-			while (!(m_isActive = m_publisherSocket.connect(m_socketUrl)))
-			{
-				AfxGetServiceApp()->waitForExit(500);
-			}
-
-
-			AfxLogInfo("Started subscriber '%s%s'", getTarget(), getUri());
 		}
 	);
 }

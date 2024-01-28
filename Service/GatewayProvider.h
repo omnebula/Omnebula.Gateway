@@ -219,6 +219,7 @@ private:
 	String m_socketUrl;
 	String m_attachUrl;
 	WebSocketClient m_publisherSocket;
+	ThreadQueue m_connectQueue;
 	std::atomic_bool m_isActive{ false };
 
 	GatewayDispatcher *m_dispatcher{ nullptr };
