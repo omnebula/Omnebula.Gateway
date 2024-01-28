@@ -15,6 +15,7 @@ class GatewayProvider : public RefCounter
 {
 public:
 	GatewayProvider(GatewayHost *host, const Xml &config, const String &target);
+	virtual ~GatewayProvider() = default;
 
 	GatewayHost *getHost() const;
 
@@ -96,11 +97,11 @@ using GatewayFileProviderPtr = RefPointer<GatewayFileProvider>;
 class GatewayServerProvider : public GatewayProvider
 {
 public:
-	GatewayServerProvider(GatewayHost *host, const Xml &config, const String &target);
+	GatewayServerProvider(GatewayHost *host, const Xml &config, const String &target, bool initConnectionPool = true);
 	virtual ~GatewayServerProvider();
 
 protected:
-	GatewayServerProvider() = default;
+	GatewayServerProvider();
 
 	virtual void dispatchRequest(GatewayContext *context, const HttpUri &uri);
 
@@ -113,20 +114,29 @@ protected:
 	String m_newQuery;
 
 	/* Connection Pooling */
-	struct ConnectionPool : public NetConnectionPool, public RefCounter
+	class ConnectionPool : public NetConnectionPool, public RefCounter
 	{
-		std::atomic<long> m_acquisitionCount;
+	public:
+		using Ptr = RefPointer<ConnectionPool>;
 
-		ConnectionPool();
+		std::atomic<long> m_acquisitionCount{ 0 };
 	};
-	using ConnectionPoolPtr = RefPointer<ConnectionPool>;
-	ConnectionPool *m_connectionPool{ nullptr };
+	class ConnectionPoolMap : public std::unordered_map<String, ConnectionPool::Ptr>, public RefCounter
+	{
+	public:
+		using Ptr = RefPointer<ConnectionPoolMap>;
+	};
+
+	ConnectionPool::Ptr m_connectionPool;
+	ConnectionPoolMap::Ptr m_connectionPoolMap;
 
 	static SyncMutex sm_connectionPoolMapMutex;
-	static std::unordered_map<String, ConnectionPoolPtr> sm_connectionPoolMap;
+	static ConnectionPoolMap *sm_connectionPoolMap;
 
-	static ConnectionPool *AcquireConnectionPool(const String &connector);
-	static void ReleaseConnectionPool(const String &connector);
+	void initConnectionPoolMap();
+	
+	static ConnectionPool *AcquireConnectionPool(const String &connector, bool init = true);
+	static bool ReleaseConnectionPool(const String &connector);
 
 	virtual bool allocateConnection(GatewayContext *context, NetStreamPtr &serverStream);
 	virtual void freeConnection(NetStreamPtr serverStream, ConnectionPool *pool = nullptr);
@@ -140,7 +150,7 @@ using GatewayServerProviderPtr = RefPointer<GatewayServerProvider>;
 // class GatewayPublisherProvider
 //
 
-class GatewayPublisherProvider : public GatewayServerProvider, public WebSocketServer
+class GatewayPublisherProvider : public WebSocketServer, public GatewayServerProvider
 {
 public:
 	GatewayPublisherProvider(GatewayHost *host, const Xml &config, const String &target);
@@ -170,6 +180,9 @@ private:
 	public:
 		SubscriberAcceptor(GatewayPublisherProvider *publisher) :
 			m_publisher(publisher)
+		{
+		}
+		virtual ~SubscriberAcceptor()
 		{
 		}
 
@@ -265,11 +278,4 @@ inline void GatewayProvider::syncConnectionType(HttpRequest &request, HttpRespon
 
 		response.setHeader(HttpHeader::CONNECTION, type);
 	}
-}
-
-
-
-inline GatewayServerProvider::ConnectionPool::ConnectionPool() :
-	m_acquisitionCount(0)
-{
 }

@@ -237,9 +237,20 @@ void GatewayFileProvider::dispatchRequest(GatewayContext *context, const HttpUri
 // class GatewayServerProvider
 //
 
-GatewayServerProvider::GatewayServerProvider(GatewayHost *host, const Xml &config, const String &target) :
+SyncMutex GatewayServerProvider::sm_connectionPoolMapMutex;
+GatewayServerProvider::ConnectionPoolMap *GatewayServerProvider::sm_connectionPoolMap = nullptr;
+
+
+GatewayServerProvider::GatewayServerProvider()
+{
+	initConnectionPoolMap();
+}
+
+GatewayServerProvider::GatewayServerProvider(GatewayHost *host, const Xml &config, const String &target, bool initConnectionPool) :
 	GatewayProvider(host, config, target)
 {
+	initConnectionPoolMap();
+
 	Xml optionConfig;
 	if (config.findChild("options", optionConfig))
 	{
@@ -260,15 +271,33 @@ GatewayServerProvider::GatewayServerProvider(GatewayHost *host, const Xml &confi
 		}
 	}
 
-	if (!m_target.isEmpty())
+	if (m_target)
 	{
-		m_connectionPool = AcquireConnectionPool(m_target);
+		m_connectionPool = AcquireConnectionPool(m_target, initConnectionPool);
 	}
 }
+
+void GatewayServerProvider::initConnectionPoolMap()
+{
+	SyncLock lock(sm_connectionPoolMapMutex);
+	if (!sm_connectionPoolMap)
+	{
+		sm_connectionPoolMap = new ConnectionPoolMap;
+	}
+
+	sm_connectionPoolMap->__incRef();
+}
+
 
 GatewayServerProvider::~GatewayServerProvider()
 {
 	ReleaseConnectionPool(m_target);
+
+	SyncLock lock(sm_connectionPoolMapMutex);
+	if (sm_connectionPoolMap && !sm_connectionPoolMap->__decRef())
+	{
+		sm_connectionPoolMap = nullptr;
+	}
 }
 
 void GatewayServerProvider::dispatchRequest(GatewayContext *context, const HttpUri &uri)
@@ -336,7 +365,7 @@ void GatewayServerProvider::sendToServer(GatewayContext *context, NetStreamPtr s
 	// Use a ref-pointer to ensure that the pool remains valid throughout async i/o routines.
 	// Otherwise, it may be prematurely deleted during configuration changes and crash when
 	// pool->free() is called.
-	ConnectionPoolPtr pool = m_connectionPool;
+	ConnectionPool::Ptr pool = m_connectionPool;
 
 	context->sendRequest(
 		serverStream,
@@ -407,57 +436,72 @@ bool GatewayServerProvider::allocateConnection(GatewayContext *context, NetStrea
 
 void GatewayServerProvider::freeConnection(NetStreamPtr serverStream, ConnectionPool *pool)
 {
-	(pool ? pool : m_connectionPool)->free(serverStream);
+	if (!pool)
+	{
+		pool = m_connectionPool;
+	}
+	pool->free(serverStream);
 }
 
 
 
-SyncMutex GatewayServerProvider::sm_connectionPoolMapMutex;
-std::unordered_map<String, GatewayServerProvider::ConnectionPoolPtr> GatewayServerProvider::sm_connectionPoolMap;
-
-GatewayServerProvider::ConnectionPool *GatewayServerProvider::AcquireConnectionPool(const String &connector)
+GatewayServerProvider::ConnectionPool *GatewayServerProvider::AcquireConnectionPool(const String &connector, bool init)
 {
-	String scheme, address;
-	connector.splitLeft(":", &scheme, &address);
-
-	NetProtocol *protocol = NetProtocol::LookupScheme(scheme);
-	if (!protocol)
-	{
-		throw Exception("unknown protocol '%s'", scheme);
-	}
-
 	ConnectionPool *connectionPool = nullptr;
 	SyncLock lock(sm_connectionPoolMapMutex);
 
-	auto it = sm_connectionPoolMap.find(connector);
-	if (it != sm_connectionPoolMap.end())
+	if (sm_connectionPoolMap)
 	{
-		connectionPool = it->second;
-	}
-	else
-	{
-		connectionPool = new ConnectionPool;
-		connectionPool->init(protocol, address);
-		sm_connectionPoolMap[connector] = connectionPool;
-	}
+		auto it = sm_connectionPoolMap->find(connector);
+		if (it != sm_connectionPoolMap->end())
+		{
+			connectionPool = it->second;
+		}
+		else
+		{
+			connectionPool = new ConnectionPool;
+			sm_connectionPoolMap->emplace(connector, connectionPool);
 
-	connectionPool->m_acquisitionCount++;
+			if (init)
+			{
+				String scheme, address;
+				connector.splitLeft(":", &scheme, &address);
+
+				NetProtocol *protocol = NetProtocol::LookupScheme(scheme);
+				if (!protocol)
+				{
+					throw Exception("unknown protocol '%s'", scheme);
+				}
+
+				connectionPool->init(protocol, address);
+			}
+		}
+
+		connectionPool->m_acquisitionCount++;
+	}
 
 	return connectionPool;
 }
 
-void GatewayServerProvider::ReleaseConnectionPool(const String &connector)
+bool GatewayServerProvider::ReleaseConnectionPool(const String &connector)
 {
+	bool released = false;
 	SyncLock lock(sm_connectionPoolMapMutex);
 
-	auto it = sm_connectionPoolMap.find(connector);
-	if (it != sm_connectionPoolMap.end())
+	if (sm_connectionPoolMap)
 	{
-		if (--(it->second->m_acquisitionCount) == 0)
+		auto it = sm_connectionPoolMap->find(connector);
+		if (it != sm_connectionPoolMap->end())
 		{
-			sm_connectionPoolMap.erase(it);
+			released = (--(it->second->m_acquisitionCount) == 0);
+			if (released)
+			{
+				sm_connectionPoolMap->erase(it);
+			}
 		}
 	}
+
+	return released;
 }
 
 
@@ -466,20 +510,14 @@ void GatewayServerProvider::ReleaseConnectionPool(const String &connector)
 //
 
 GatewayPublisherProvider::GatewayPublisherProvider(GatewayHost *host, const Xml &config, const String &target) :
-	GatewayServerProvider(host, config, nullptr)
+	GatewayServerProvider(host, config, target, false)
 {
-	m_target = target;
-	m_connectionPool = new ConnectionPool;
-	m_connectionPool->m_acquisitionCount++;
-	sm_connectionPoolMap[m_target] = m_connectionPool;
-
 	host->addProvider("/@subscriber" + getTarget(), new GatewayPublisherProvider::SubscriberAcceptor(this));
 }
 
 GatewayPublisherProvider::~GatewayPublisherProvider()
 {
 	WebSocketServer::exit();
-	m_sendQueue.waitForIdle();
 }
 
 
@@ -540,17 +578,18 @@ void GatewayPublisherProvider::freeConnection(NetStreamPtr serverStream, Connect
 
 void GatewayPublisherProvider::onError(Context *context, Context::Error &error)
 {
-	context->close();
-	onClose(context);
+	__super::onError(context, error);
+//	context->close();
+//	onClose(context);
 }
 
 void GatewayPublisherProvider::onClose(Context *context)
 {
+	__super::onClose(context);
 	if (m_controllerContext == context)
 	{
 		m_controllerContext = nullptr;
 	}
-	__super::onClose(context);
 }
 
 
@@ -609,10 +648,8 @@ void GatewayPublisherProvider::SubscriberAcceptor::dispatchRequest(GatewayContex
 //
 
 GatewaySubscriberProvider::GatewaySubscriberProvider(GatewayHost *host, const Xml &config, const String &publisher) :
-	GatewayServerProvider(host, config, nullptr)
+	GatewayServerProvider(host, config, publisher, false)
 {
-	m_target = publisher;
-
 	String protocol, address;
 	publisher.splitLeft(":", &protocol, &address);
 	if (protocol.compareNoCase("tls") == 0)
