@@ -40,7 +40,6 @@ void GatewayContext::beginRequest()
 					[this]() mutable
 					{
  						String hostName = request.getHost();
-// 						hostName.splitRight(":", &hostName, nullptr);
 
 						GatewayHostPtr host = m_dispatcher->lookupHost(hostName);
 						if (host)
@@ -155,20 +154,29 @@ void GatewayContext::beginClientRelay()
 			size_t count = state->getTransferCount();
 			if (count)
 			{
-				m_serverStream->write(
-					m_clientRelayBuffer, count,
-					[this](IoState *state) mutable
-					{
-						if (state->succeeded())
+				SyncSharedLock lock(m_relayMutex);
+				if (m_serverStream)
+				{
+					m_serverStream->write(
+						m_clientRelayBuffer, count,
+						[this](IoState *state) mutable
 						{
-							beginClientRelay();
+							if (state->succeeded())
+							{
+								beginClientRelay();
+							}
+							else
+							{
+								closeClientRelay();
+							}
 						}
-						else
-						{
-							closeClientRelay();
-						}
-					}
-				);
+					);
+				}
+				else
+				{
+					lock.unlock();
+					closeClientRelay();
+				}
 			}
 			else
 			{
@@ -181,9 +189,12 @@ void GatewayContext::closeClientRelay()
 {
 	SyncLock lock(m_relayMutex);
 
-	m_clientRelayBuffer.free();
-	m_stream->close();
-	m_stream = nullptr;
+	if (m_stream)
+	{
+		m_clientRelayBuffer.free();
+		m_stream->close();
+		m_stream = nullptr;
+	}
 
 	if (m_serverStream)
 	{
@@ -204,20 +215,29 @@ void GatewayContext::beginServerRelay()
 			size_t count = state->getTransferCount();
 			if (count)
 			{
-				m_stream->write(
-					m_serverRelayBuffer, count,
-					[this](IoState *state) mutable
-					{
-						if (state->succeeded())
+				SyncSharedLock lock(m_relayMutex);
+				if (m_stream)
+				{
+					m_stream->write(
+						m_serverRelayBuffer, count,
+						[this](IoState *state) mutable
 						{
-							beginServerRelay();
+							if (state->succeeded())
+							{
+								beginServerRelay();
+							}
+							else
+							{
+								closeServerRelay();
+							}
 						}
-						else
-						{
-							closeServerRelay();
-						}
-					}
-				);
+					);
+				}
+				else
+				{
+					lock.unlock();
+					closeServerRelay();
+				}
 			}
 			else
 			{
@@ -230,9 +250,12 @@ void GatewayContext::closeServerRelay()
 {
 	SyncLock lock(m_relayMutex);
 
-	m_serverRelayBuffer.free();
-	m_serverStream->close();
-	m_serverStream = nullptr;
+	if (m_serverStream)
+	{
+		m_serverRelayBuffer.free();
+		m_serverStream->close();
+		m_serverStream = nullptr;
+	}
 
 	if (m_stream)
 	{
@@ -247,16 +270,15 @@ void GatewayContext::closeServerRelay()
 
 bool GatewayContext::close()
 {
-	m_mutex.lock();
-	NetStreamPtr stream = std::move(m_serverStream);
-	m_mutex.unlock();
-
-	if (stream)
+	if (m_serverStream)
 	{
-		stream->close();
+		closeServerRelay();
+		return true;
 	}
-
-	return NetContext::close();
+	else
+	{
+		return NetContext::close();
+	}
 }
 
 

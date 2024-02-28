@@ -163,13 +163,13 @@ protected:
 	virtual bool allocateConnection(GatewayContext *context, NetStreamPtr &serverStream) override;
 	virtual void freeConnection(NetStreamPtr serverStream, ConnectionPool *pool = nullptr) override;
 
-	virtual void onError(Context *context, Context::Error &error);
-	virtual void onClose(Context *context);
+	virtual void onWebSocketError(ServerContext *context, ServerContext::Error &error) override;
+	virtual void onWebSocketClose(ServerContext *context) override;
 
 private:
 	SyncMutex m_mutex;
 	std::queue<GatewayContext*> m_pendingConnections;
-	Context::Ptr m_controllerContext;
+	ServerContext::Ptr m_controllerContext;
 	ThreadQueue m_sendQueue{ INFINITE };
 
 	void attachSubscriber(GatewayContext *context);

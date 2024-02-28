@@ -576,16 +576,16 @@ void GatewayPublisherProvider::freeConnection(NetStreamPtr serverStream, Connect
 }
 
 
-void GatewayPublisherProvider::onError(Context *context, Context::Error &error)
+void GatewayPublisherProvider::onWebSocketError(ServerContext *context, ServerContext::Error &error)
 {
-	__super::onError(context, error);
+	__super::onWebSocketError(context, error);
 	//	context->close();
 	//	onClose(context);
 }
 
-void GatewayPublisherProvider::onClose(Context *context)
+void GatewayPublisherProvider::onWebSocketClose(ServerContext *context)
 {
-	__super::onClose(context);
+	__super::onWebSocketClose(context);
 	if (m_controllerContext == context)
 	{
 		m_controllerContext = nullptr;
@@ -607,7 +607,7 @@ void GatewayPublisherProvider::attachSubscriber(GatewayContext *subscriberContex
 		}
 		else
 		{
-			m_controllerContext = beginConnection(*subscriberContext, subscriberContext->request, *response);
+			m_controllerContext = beginWebSocket(*subscriberContext, subscriberContext->request, *response);
 			if (m_controllerContext)
 			{
 				subscriberContext->discard();
@@ -705,11 +705,11 @@ void GatewaySubscriberProvider::initPublisher()
 {
 	if (!m_publisherSocket.onText)
 	{
-		m_publisherSocket.onText = [this](String text) mutable
+		m_publisherSocket.onText = [this](WebSocketContext *context, String text) mutable
 			{
 				sendAttachRequest();
 			};
-		m_publisherSocket.onClose = [this]() mutable
+		m_publisherSocket.onClose = [this](WebSocketContext *context) mutable
 			{
 				if (m_isActive)
 				{
