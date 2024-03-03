@@ -167,6 +167,7 @@ void GatewayContext::beginClientRelay()
 							}
 							else
 							{
+								SyncLock lock(m_relayMutex);
 								closeClientRelay();
 							}
 						}
@@ -175,11 +176,14 @@ void GatewayContext::beginClientRelay()
 				else
 				{
 					lock.unlock();
+
+					SyncLock lock(m_relayMutex);
 					closeClientRelay();
 				}
 			}
 			else
 			{
+				SyncLock lock(m_relayMutex);
 				closeClientRelay();
 			}
 		}
@@ -187,8 +191,6 @@ void GatewayContext::beginClientRelay()
 }
 void GatewayContext::closeClientRelay()
 {
-	SyncLock lock(m_relayMutex);
-
 	if (m_stream)
 	{
 		m_clientRelayBuffer.free();
@@ -208,6 +210,8 @@ void GatewayContext::closeClientRelay()
 
 void GatewayContext::beginServerRelay()
 {
+	SyncSharedLock lock(m_relayMutex);
+
 	m_serverStream->read(
 		m_serverRelayBuffer, m_serverRelayBuffer.getCapacity(),
 		[this](IoState *state) mutable
@@ -228,6 +232,7 @@ void GatewayContext::beginServerRelay()
 							}
 							else
 							{
+								SyncLock lock(m_relayMutex);
 								closeServerRelay();
 							}
 						}
@@ -236,11 +241,14 @@ void GatewayContext::beginServerRelay()
 				else
 				{
 					lock.unlock();
+
+					SyncLock lock(m_relayMutex);
 					closeServerRelay();
 				}
 			}
 			else
 			{
+				SyncLock lock(m_relayMutex);
 				closeServerRelay();
 			}
 		}
@@ -248,8 +256,6 @@ void GatewayContext::beginServerRelay()
 }
 void GatewayContext::closeServerRelay()
 {
-	SyncLock lock(m_relayMutex);
-
 	if (m_serverStream)
 	{
 		m_serverRelayBuffer.free();
@@ -270,6 +276,8 @@ void GatewayContext::closeServerRelay()
 
 bool GatewayContext::close()
 {
+	SyncLock lock(m_relayMutex);
+
 	if (m_serverStream)
 	{
 		closeServerRelay();
